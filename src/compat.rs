@@ -3,7 +3,7 @@
 
 use crate::app;
 use crate::lua;
-use crate::ui::block;
+use crate::ui::AddBlock;
 use crate::ui::string_to_text;
 use crate::ui::Constraint;
 use crate::ui::ContentRendererArg;
@@ -73,10 +73,10 @@ pub fn draw_custom_content(
     match body {
         ContentBody::StaticParagraph { render } => {
             let render = string_to_text(render);
-            let content = Paragraph::new(render).block(block(
+            let content = Paragraph::new(render).add_block(
                 config,
                 title.map(|t| format!(" {t} ")).unwrap_or_default(),
-            ));
+            );
             f.render_widget(content, layout_size);
         }
 
@@ -96,10 +96,10 @@ pub fn draw_custom_content(
 
             let render = string_to_text(render);
 
-            let content = Paragraph::new(render).block(block(
+            let content = Paragraph::new(render).add_block(
                 config,
                 title.map(|t| format!(" {t} ")).unwrap_or_default(),
-            ));
+            );
             f.render_widget(content, layout_size);
         }
 
@@ -110,10 +110,10 @@ pub fn draw_custom_content(
                 .map(ListItem::new)
                 .collect::<Vec<ListItem>>();
 
-            let content = List::new(items).block(block(
+            let content = List::new(items).add_block(
                 config,
                 title.map(|t| format!(" {t} ")).unwrap_or_default(),
-            ));
+            );
             f.render_widget(content, layout_size);
         }
 
@@ -136,10 +136,10 @@ pub fn draw_custom_content(
                 .map(ListItem::new)
                 .collect::<Vec<ListItem>>();
 
-            let content = List::new(items).block(block(
+            let content = List::new(items).add_block(
                 config,
                 title.map(|t| format!(" {t} ")).unwrap_or_default(),
-            ));
+            );
             f.render_widget(content, layout_size);
         }
 
@@ -167,10 +167,10 @@ pub fn draw_custom_content(
 
             let content = Table::new(rows, widths)
                 .column_spacing(col_spacing.unwrap_or(1))
-                .block(block(
+                .add_block(
                     config,
                     title.map(|t| format!(" {t} ")).unwrap_or_default(),
-                ));
+                );
 
             f.render_widget(content, layout_size);
         }
@@ -209,10 +209,10 @@ pub fn draw_custom_content(
                 .map(|w| w.to_tui(ui.screen_size, layout_size))
                 .collect::<Vec<TuiConstraint>>();
 
-            let mut content = Table::new(rows, &widths).block(block(
+            let mut content = Table::new(rows, &widths).add_block(
                 config,
                 title.map(|t| format!(" {t} ")).unwrap_or_default(),
-            ));
+            );
 
             if let Some(col_spacing) = col_spacing {
                 content = content.column_spacing(col_spacing);

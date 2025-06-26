@@ -722,6 +722,38 @@ impl NodeUiMetadata {
     }
 }
 
+pub trait AddBlock {
+	fn add_block(self, config: PanelUiConfig, default_title: String) -> Self;
+}
+
+macro_rules! addBlock {
+	($($typ:ident)+) => {
+		$(
+			impl<'a> AddBlock for $typ<'a> {
+				fn add_block(self, config: PanelUiConfig, default_title: String) -> Self {
+					if has_block(&config, &default_title) {
+						self.block(block(config, default_title))
+					} else {
+						self
+					}
+				}
+			}
+		)*
+	}
+}
+
+// impl<'a> AddBlock for Table<'a> {
+// 	fn add_block(self, config: PanelUiConfig, default_title: String) -> Self {
+// 		if has_block(&config, &default_title) {
+// 			self.block(block(config, default_title))
+// 		} else {
+// 			self
+// 		}
+// 	}
+// }
+
+addBlock!(Table Paragraph List);
+
 pub fn block<'a>(config: PanelUiConfig, default_title: String) -> Block<'a> {
     Block::default()
         .borders(TuiBorders::from_bits_truncate(
@@ -740,6 +772,21 @@ pub fn block<'a>(config: PanelUiConfig, default_title: String) -> Block<'a> {
         .style(config.style)
         .border_type(config.border_type.unwrap_or_default().into())
         .border_style(config.border_style)
+}
+
+pub fn has_block(config: &PanelUiConfig, default_title: &str) -> bool {
+	!config
+		.title
+		.format
+		.as_deref()
+		.unwrap_or(default_title)
+		.is_empty()
+		||
+	!config
+		.borders
+		.clone()
+		.unwrap_or_default()
+		.is_empty()
 }
 
 pub struct UI<'lua> {
@@ -766,7 +813,9 @@ impl UI<'_> {
         let config = panel_config.default.clone().extend(&panel_config.table);
         let app_config = app.config.clone();
         let header_height = app_config.general.table.header.height.unwrap_or(1);
-        let height: usize = layout_size.height.saturating_sub(header_height + 2).into();
+		let border_padding = if has_block(&config, ".") {1} else {0};
+		let border_buffer = border_padding * 2;
+        let height: usize = layout_size.height.saturating_sub(header_height + border_buffer).into();
         let row_style = app_config.general.table.row.style.clone();
 
         let rows = app
@@ -784,10 +833,11 @@ impl UI<'_> {
                         .general
                         .scroll_padding
                         .min(height / 2)
-                        .saturating_sub(1);
+                        .saturating_sub(border_padding.into());
                     if dir.focus >= (self.scrolltop + height).saturating_sub(padding) {
                         // Scrolling down
-                        self.scrolltop = (dir.focus + padding + 1)
+                        self.scrolltop = (dir.focus + padding)
+							.saturating_add(border_padding.into())
                             .saturating_sub(height)
                             .min(dir.total.saturating_sub(height));
                     } else if dir.focus < self.scrolltop + padding {
@@ -810,7 +860,7 @@ impl UI<'_> {
                             .any(|s| s.absolute_path == node.absolute_path);
 
                         let is_first = index == 0;
-                        let is_last = index == dir.total.max(1) - 1;
+                        let is_last = index == dir.total.saturating_sub(1);
 
                         let tree = app_config
                             .general
@@ -937,12 +987,10 @@ impl UI<'_> {
             .style(app_config.general.table.style.clone())
             .row_highlight_style(app_config.general.focus_ui.style.clone())
             .column_spacing(app_config.general.table.col_spacing.unwrap_or_default())
-            .block(block(
+            .add_block(
                 config,
                 format!(" {vroot_indicator}/{pwd} {node_count}"),
-            ));
-
-        let table = table.clone().header(
+            ).header(
             Row::new(
                 app_config
                     .general
@@ -968,14 +1016,15 @@ impl UI<'_> {
     fn draw_selection(&mut self, f: &mut Frame, layout_size: TuiRect, app: &app::App) {
         let panel_config = &app.config.general.panel_ui;
         let config = panel_config.default.clone().extend(&panel_config.selection);
-
+		let border_buffer = if has_block(&config, ".") {2} else {0};
+		
         let selection_count = app.selection.len();
 
         let selection: Vec<ListItem> = app
             .selection
             .iter()
             .rev()
-            .take((layout_size.height.max(2) - 2).into())
+            .take((layout_size.height.saturating_sub(border_buffer)).into())
             .rev()
             .map(|n| {
                 let out = app
@@ -1006,7 +1055,7 @@ impl UI<'_> {
         };
 
         let selection_list = List::new(selection)
-            .block(block(config, format!(" Selection {selection_count}")));
+            .add_block(config, format!(" Selection {selection_count}"));
 
         f.render_widget(selection_list, layout_size);
     }
@@ -1042,10 +1091,10 @@ impl UI<'_> {
                 TuiConstraint::Percentage(60),
             ]
         };
-        let help_menu = Table::new(help_menu_rows, widths).block(block(
+        let help_menu = Table::new(help_menu_rows, widths).add_block(
             config,
             format!(" Help [{}{}] ", &app.mode.name, read_only_indicator(app)),
-        ));
+        );
         f.render_widget(help_menu, layout_size);
     }
 
@@ -1061,6 +1110,8 @@ impl UI<'_> {
                 .default
                 .clone()
                 .extend(&panel_config.input_and_logs);
+
+			let border_buffer = if has_block(&config, ".") {1} else {0};
 
             let cursor_offset_left = config
                 .borders
@@ -1088,7 +1139,7 @@ impl UI<'_> {
                 Span::raw(input.value()),
             ]))
             .scroll((0, scroll))
-            .block(block(
+            .add_block(
                 config,
                 format!(
                     " Input [{}{}]{} ",
@@ -1096,7 +1147,7 @@ impl UI<'_> {
                     read_only_indicator(app),
                     selection_indicator(app),
                 ),
-            ));
+            );
 
             f.render_widget(input_buf, layout_size);
             f.set_cursor_position(
@@ -1106,7 +1157,7 @@ impl UI<'_> {
                         + (input.visual_cursor() as u16).min(width)
                         + cursor_offset_left,
                     // Move one line down, from the border to the input line
-                    layout_size.y + 1,
+                    layout_size.y + border_buffer,
                 ),
             );
         };
@@ -1228,7 +1279,7 @@ impl UI<'_> {
         };
 
         let p = Paragraph::new(Line::from(spans))
-            .block(block(config, format!(" Sort & filter {item_count}")));
+            .add_block(config, format!(" Sort & filter {item_count}"));
 
         f.render_widget(p, layout_size);
     }
@@ -1290,7 +1341,7 @@ impl UI<'_> {
             format!(" ({logs_count})")
         };
 
-        let logs_list = List::new(logs).block(block(
+        let logs_list = List::new(logs).add_block(
             config,
             format!(
                 " Logs{} [{}{}]{} ",
@@ -1299,7 +1350,7 @@ impl UI<'_> {
                 read_only_indicator(app),
                 selection_indicator(app)
             ),
-        ));
+        );
 
         f.render_widget(logs_list, layout_size);
     }
@@ -1307,7 +1358,7 @@ impl UI<'_> {
     fn draw_nothing(&mut self, f: &mut Frame, layout_size: TuiRect, app: &app::App) {
         let panel_config = &app.config.general.panel_ui;
         let config = panel_config.default.clone();
-        let nothing = Paragraph::new("").block(block(config, "".into()));
+        let nothing = Paragraph::new("").add_block(config, "".into());
         f.render_widget(nothing, layout_size);
     }
 
@@ -1347,7 +1398,7 @@ impl UI<'_> {
             CustomPanel::CustomParagraph { ui, body } => {
                 let config = defaultui.extend(&ui);
                 let body = string_to_text(body);
-                let content = Paragraph::new(body).block(block(config, "".into()));
+                let content = Paragraph::new(body).add_block(config, "".into());
                 f.render_widget(content, layout_size);
             }
 
@@ -1360,7 +1411,7 @@ impl UI<'_> {
                     .map(ListItem::new)
                     .collect::<Vec<ListItem>>();
 
-                let content = List::new(items).block(block(config, "".into()));
+                let content = List::new(items).add_block(config, "".into());
                 f.render_widget(content, layout_size);
             }
 
@@ -1390,7 +1441,7 @@ impl UI<'_> {
 
                 let content = Table::new(rows, widths)
                     .column_spacing(col_spacing.unwrap_or(1))
-                    .block(block(config, "".into()));
+                    .add_block(config, "".into());
 
                 f.render_widget(content, layout_size);
             }
