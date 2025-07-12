@@ -31,7 +31,7 @@ fn mime_essence(
 						.args(["--brief", "--mime", "--no-dereference", p])
 						.output();
 					match o {
-						Ok(o) => str::from_utf8(&o.stdout)
+						Ok(o) => std::str::from_utf8(&o.stdout)
 							.map(|s| s.to_owned())
 							.unwrap_or_else(|e| format!("{e:#?}")),
 						Err(e) => format!("{e:#?}")
