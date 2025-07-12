@@ -42,6 +42,7 @@ time = { version = "0.3.37", features = ["serde", "local-offset", "formatting", 
 jf = "0.6.2"
 xdg = "2.5.2"
 home = "0.5.11"
+command = "0.0.0"
 
 [dependencies.lscolors]
 version = "0.20.0"

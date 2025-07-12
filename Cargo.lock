@@ -305,6 +305,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
+name = "command"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21332b6e55458a6035ff2e561560993cbd945fdc8c9a6ca03c541fb04f31c57b"
+
+[[package]]
 name = "compact_str"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2158,6 +2164,7 @@ dependencies = [
  "ansi-to-tui",
  "anyhow",
  "assert_cmd",
+ "command",
  "criterion",
  "crossterm",
  "gethostname",

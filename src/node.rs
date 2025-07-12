@@ -5,6 +5,7 @@ use std::cmp::Ordering;
 use std::os::unix::prelude::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
+use std::process::Command;
 
 fn to_human_size(size: u64) -> String {
     format_size(size, DECIMAL)
@@ -15,17 +16,40 @@ fn mime_essence(
     is_dir: bool,
     extension: &str,
     is_executable: bool,
+	is_focussed: bool,
 ) -> String {
-    if is_dir {
-        String::from("inode/directory")
-    } else if extension.is_empty() && is_executable {
-        String::from("application/x-executable")
-    } else {
-        mime_guess::from_path(path)
-            .first()
-            .map(|m| m.essence_str().to_string())
-            .unwrap_or_default()
-    }
+	if is_dir {
+		String::from("inode/directory")
+	} else {
+		is_focussed
+			.then(|| path.to_str())
+			.flatten()
+			.map(
+				|p| {
+					// use crate mimty instead of file exe?
+					let o = Command::new("file")
+						.args(["--brief", "--mime", "--no-dereference", p])
+						.output();
+					match o {
+						Ok(o) => str::from_utf8(&o.stdout)
+							.map(|s| s.to_owned())
+							.unwrap_or_else(|e| format!("{e:#?}")),
+						Err(e) => format!("{e:#?}")
+					}
+				}
+			)
+			.unwrap_or_else(
+				||
+					if extension.is_empty() && is_executable {
+						String::from("application/x-executable")
+					} else {
+						mime_guess::from_path(path)
+							.first()
+							.map(|m| m.essence_str().to_string())
+							.unwrap_or_default()
+					}
+			)
+	}
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -87,7 +111,7 @@ impl ResolvedNode {
         let is_executable = permissions.user_execute
             || permissions.group_execute
             || permissions.other_execute;
-        let mime_essence = mime_essence(&path, is_dir, &extension, is_executable);
+        let mime_essence = mime_essence(&path, is_dir, &extension, is_executable, false);
         let human_size = to_human_size(size);
 
         Self {
@@ -132,7 +156,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(parent: String, relative_path: String) -> Self {
+    pub fn new(parent: String, relative_path: String, is_focussed: bool) -> Self {
         let absolute_path = PathBuf::from(&parent)
             .join(&relative_path)
             .to_string_lossy()
@@ -202,7 +226,7 @@ impl Node {
             || permissions.group_execute
             || permissions.other_execute;
 
-        let mime_essence = mime_essence(&path, is_dir, &extension, is_executable);
+        let mime_essence = mime_essence(&path, is_dir, &extension, is_executable, is_focussed);
         let human_size = to_human_size(size);
 
         Self {

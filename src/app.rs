@@ -1605,7 +1605,7 @@ impl App {
         let count = self.selection.len();
 
         if let (Some(p), Some(n)) = (parent, filename) {
-            self.selection.insert(Node::new(p, n));
+            self.selection.insert(Node::new(p, n, false));
         }
 
         if self.selection.len() != count {

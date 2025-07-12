@@ -20,7 +20,8 @@ pub fn explore(parent: &PathBuf, config: &ExplorerConfig) -> Result<Vec<Node>> {
                     .unwrap_or_default()
             })
         })
-        .map(|name| Node::new(parent.to_string_lossy().to_string(), name))
+		// TODO: this is where to add batch method thingy
+        .map(|name| Node::new(parent.to_string_lossy().to_string(), name, false))
         .filter(|n| config.filter(n));
 
     let mut nodes = if let Some(searcher) = config.searcher.as_ref() {

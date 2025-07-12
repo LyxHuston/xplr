@@ -249,6 +249,7 @@ pub fn node(util: Table, lua: &Lua) -> Result<Table> {
                 let node = Node::new(
                     parent.to_string_lossy().to_string(),
                     name.to_string_lossy().to_string(),
+					false
                 );
                 Ok(lua::serialize(lua, &node).map_err(LuaError::custom)?)
             }
