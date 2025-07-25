@@ -4,6 +4,7 @@ use crate::explorer;
 use crate::lua;
 use crate::msg::in_::external::ExplorerConfig;
 use crate::node::Node;
+use crate::node::mime_essence;
 use crate::path;
 use crate::path::RelativityConfig;
 use crate::permissions::Octal;
@@ -856,6 +857,48 @@ pub fn permissions_octal(util: Table, lua: &Lua) -> Result<Table> {
     Ok(util)
 }
 
+
+/// Get full mimetype of a node.
+///
+/// Type: function( string ) -> string
+///
+/// Example:
+///
+/// ```lua
+/// xplr.util.full_mimetype("img.jpeg")
+/// -- "image/jpeg"
+/// ```
+pub fn full_mimetype(util: Table, lua: &Lua) -> Result<Table> {
+    let func = lua.create_function(move |_, string: String| {
+
+		let path = PathBuf::from(string);
+		let extension = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let (
+            is_dir,
+            permissions
+        ) = path
+            .metadata()
+            .map(|m| {
+                (
+                    m.is_dir(),
+                    Permissions::from(&m)
+                )
+            })
+            .unwrap_or((false, Default::default()));
+		let is_executable = permissions.user_execute
+            || permissions.group_execute
+            || permissions.other_execute;
+		let val = mime_essence(&path, is_dir, &extension, is_executable, true);
+        Ok(val)
+    })?;
+    util.set("full_mimetype", func)?;
+    Ok(util)
+}
+
 ///
 /// [1]: https://xplr.dev/en/lua-function-calls#explorer-config
 /// [2]: https://xplr.dev/en/lua-function-calls#node
@@ -900,6 +943,7 @@ pub(crate) fn create_table(lua: &Lua) -> Result<Table> {
     util = layout_replace(util, lua)?;
     util = permissions_rwx(util, lua)?;
     util = permissions_octal(util, lua)?;
+	util = full_mimetype(util, lua)?;
 
     Ok(util)
 }

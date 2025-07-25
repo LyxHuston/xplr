@@ -47,6 +47,7 @@ jf = "0.6.2"
 xdg = "3.0.0"
 home = "0.5.11"
 command = "0.0.0"
+mimty = "0.3.0"
 
 [dependencies.lscolors]
 version = "0.20.0"
@@ -91,7 +92,7 @@ assert_cmd = "2.0.17"
 [profile.release]
 lto = true
 codegen-units = 1
-panic = 'abort'
+panic = 'unwind'
 strip = true
 
 [features]

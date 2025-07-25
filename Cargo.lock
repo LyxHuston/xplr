@@ -990,6 +990,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "mimty"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee5e2f469be4bfcc1c1a156b721dced7dc5e897b250cce0ee893c59d8e6dea93"
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2304,6 +2310,7 @@ dependencies = [
  "libc",
  "lscolors",
  "mime_guess",
+ "mimty",
  "mlua",
  "natord",
  "nu-ansi-term",

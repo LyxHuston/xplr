@@ -5,13 +5,13 @@ use std::cmp::Ordering;
 use std::os::unix::prelude::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
-use std::process::Command;
+use mimty::file;
 
 fn to_human_size(size: u64) -> String {
     format_size(size, DECIMAL)
 }
 
-fn mime_essence(
+pub fn mime_essence(
     path: &Path,
     is_dir: bool,
     extension: &str,
@@ -22,22 +22,9 @@ fn mime_essence(
 		String::from("inode/directory")
 	} else {
 		is_focussed
-			.then(|| path.to_str())
+			.then(|| file(path))
 			.flatten()
-			.map(
-				|p| {
-					// use crate mimty instead of file exe?
-					let o = Command::new("file")
-						.args(["--brief", "--mime", "--no-dereference", p])
-						.output();
-					match o {
-						Ok(o) => std::str::from_utf8(&o.stdout)
-							.map(|s| s.to_owned())
-							.unwrap_or_else(|e| format!("{e:#?}")),
-						Err(e) => format!("{e:#?}")
-					}
-				}
-			)
+			.map(String::from)
 			.unwrap_or_else(
 				||
 					if extension.is_empty() && is_executable {
