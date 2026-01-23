@@ -3,8 +3,8 @@ use crate::config::NodeTypesConfig;
 use crate::explorer;
 use crate::lua;
 use crate::msg::in_::external::ExplorerConfig;
-use crate::node::Node;
 use crate::node::mime_essence;
+use crate::node::Node;
 use crate::path;
 use crate::path::RelativityConfig;
 use crate::permissions::Octal;
@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use serde_json as json;
 use serde_yaml as yaml;
 use std::borrow::Cow;
+use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -250,7 +251,7 @@ pub fn node(util: Table, lua: &Lua) -> Result<Table> {
                 let node = Node::new(
                     parent.to_string_lossy().to_string(),
                     name.to_string_lossy().to_string(),
-					false
+                    false,
                 );
                 Ok(lua::serialize(lua, &node).map_err(LuaError::custom)?)
             }
@@ -857,7 +858,6 @@ pub fn permissions_octal(util: Table, lua: &Lua) -> Result<Table> {
     Ok(util)
 }
 
-
 /// Get full mimetype of a node.
 ///
 /// Type: function( string ) -> string
@@ -870,32 +870,84 @@ pub fn permissions_octal(util: Table, lua: &Lua) -> Result<Table> {
 /// ```
 pub fn full_mimetype(util: Table, lua: &Lua) -> Result<Table> {
     let func = lua.create_function(move |_, string: String| {
-
-		let path = PathBuf::from(string);
-		let extension = path
+        let path = PathBuf::from(string);
+        let extension = path
             .extension()
             .map(|e| e.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        let (
-            is_dir,
-            permissions
-        ) = path
+        let (is_dir, permissions) = path
             .metadata()
-            .map(|m| {
-                (
-                    m.is_dir(),
-                    Permissions::from(&m)
-                )
-            })
+            .map(|m| (m.is_dir(), Permissions::from(&m)))
             .unwrap_or((false, Default::default()));
-		let is_executable = permissions.user_execute
+        let is_executable = permissions.user_execute
             || permissions.group_execute
             || permissions.other_execute;
-		let val = mime_essence(&path, is_dir, &extension, is_executable, true);
+        let val = mime_essence(&path, is_dir, &extension, is_executable, true);
         Ok(val)
     })?;
     util.set("full_mimetype", func)?;
+    Ok(util)
+}
+
+/// Set an environment variable in xplr
+///
+/// Type: function(String, String) -> nil
+///
+/// errors if the variable provided is invalid
+///
+/// Example:
+///
+/// ```lua
+/// xplr.util.set_env("PATH", "/bin")
+/// -- nil
+/// ```
+pub fn set_env(util: Table, lua: &Lua) -> Result<Table> {
+    let func = lua.create_function(move |_, (var, val): (String, String)| {
+        if var
+            .chars()
+            .find(|c: &char| *c == '=' || *c == '\0')
+            .is_some()
+            || val.chars().find(|c: &char| *c == '\0').is_some()
+        {
+            Err(LuaError::custom("Variable or value was invalid"))
+        } else {
+            // safety: hopefully!
+            unsafe { env::set_var(var, val) };
+            Ok(())
+        }
+    })?;
+    util.set("set_env", func)?;
+    Ok(util)
+}
+
+/// Unset an environment variable in xplr
+///
+/// Type: function(String) -> nil
+///
+/// errors if the variable provided is invalid
+///
+/// Example:
+///
+/// ```lua
+/// xplr.util.unset_env("PATH")
+/// -- nil
+/// ```
+pub fn unset_env(util: Table, lua: &Lua) -> Result<Table> {
+    let func = lua.create_function(move |_, var: String| {
+        if var
+            .chars()
+            .find(|c: &char| *c == '=' || *c == '\0')
+            .is_some()
+        {
+            Err(LuaError::custom("Variable was invalid"))
+        } else {
+            // safety: hopefully!
+            unsafe { env::remove_var(var) };
+            Ok(())
+        }
+    })?;
+    util.set("unset_env", func)?;
     Ok(util)
 }
 
@@ -943,7 +995,9 @@ pub(crate) fn create_table(lua: &Lua) -> Result<Table> {
     util = layout_replace(util, lua)?;
     util = permissions_rwx(util, lua)?;
     util = permissions_octal(util, lua)?;
-	util = full_mimetype(util, lua)?;
+    util = full_mimetype(util, lua)?;
+    util = set_env(util, lua)?;
+    util = unset_env(util, lua)?;
 
     Ok(util)
 }
